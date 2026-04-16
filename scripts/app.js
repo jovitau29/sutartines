@@ -873,6 +873,13 @@ function getValidationMessage(invalidFields) {
   return `Prašome užpildyti lauką „${firstInvalid.field.label}“ ir dar ${invalidFields.length - 1} privalomus laukus.`;
 }
 
+function getExportWarningMessage(invalidFields) {
+  const [firstInvalid] = invalidFields;
+  if (!firstInvalid) return 'Dokumentas eksportuotas su trūkstamomis reikšmėmis.';
+  if (invalidFields.length === 1) return `Dokumentas eksportuojamas su neužpildytu lauku „${firstInvalid.field.label}“.`;
+  return `Dokumentas eksportuojamas su neužpildytu lauku „${firstInvalid.field.label}“ ir dar ${invalidFields.length - 1} trūkstamais privalomais laukais.`;
+}
+
 function showToast(message, type = 'error') {
   document.querySelectorAll('.validation-toast').forEach(node => node.remove());
   const toast = document.createElement('div');
@@ -910,6 +917,14 @@ function ensureValid() {
   invalid[0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   invalid[0].el.focus();
   return false;
+}
+
+function warnAboutMissingRequiredFields() {
+  const invalid = validate();
+  if (!invalid.length) return false;
+
+  showToast(getExportWarningMessage(invalid), 'warning');
+  return true;
 }
 
 function nextPartId() {
@@ -1473,7 +1488,7 @@ function initLiveDragDrop() {
 }
 
 function saveDocx() {
-  if (!ensureValid()) return;
+  warnAboutMissingRequiredFields();
 
   const { Document, Paragraph, TextRun, Table, TableRow, TableCell, Packer, WidthType, AlignmentType } = window.docx;
   const cm = value => Math.round(value * 567);
@@ -1495,7 +1510,17 @@ function saveDocx() {
       if (match.index > lastIndex) {
         runs.push(new TextRun({ text: rawLine.slice(lastIndex, match.index), bold, font: 'Times New Roman', size: 22 }));
       }
-      runs.push(new TextRun({ text: resolveToken(match[1]).text, bold, font: 'Times New Roman', size: 22 }));
+      const resolved = resolveToken(match[1]);
+      runs.push(new TextRun({ text: resolved.text, bold, font: 'Times New Roman', size: 22 }));
+      if (!resolved.isValue) {
+        runs.push(new TextRun({
+          text: ` (${resolved.label})`,
+          italics: true,
+          color: '6B7280',
+          font: 'Segoe UI',
+          size: 16
+        }));
+      }
       lastIndex = match.index + match[0].length;
     }
 
@@ -1617,7 +1642,7 @@ function init() {
   refs.loadInput.addEventListener('change', () => loadJson(refs.loadInput));
   refs.loadTemplateInput.addEventListener('change', () => loadTemplate(refs.loadTemplateInput));
   refs.btnPrint.addEventListener('click', () => {
-    if (!ensureValid()) return;
+    warnAboutMissingRequiredFields();
     window.print();
   });
   refs.btnDocx.addEventListener('click', saveDocx);
