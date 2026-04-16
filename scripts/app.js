@@ -359,12 +359,14 @@ const state = {
   liveMode: false,
   liveKey: 'document',
   dragPayload: null,
-  pageCounterStyle: null
+  pageCounterStyle: null,
+  lastLiveRange: null
 };
 
 const refs = {
   form: document.getElementById('lease-form'),
   liveFields: document.getElementById('live-fields'),
+  panelBody: document.getElementById('panel-body'),
   liveEditor: document.getElementById('live-editor'),
   panelNote: document.getElementById('panel-note'),
   paper: document.querySelector('.paper'),
@@ -375,7 +377,13 @@ const refs = {
   loadInput: document.getElementById('load-input'),
   loadTemplateInput: document.getElementById('load-template-input'),
   btnPrint: document.getElementById('btn-print'),
-  btnDocx: document.getElementById('btn-docx')
+  btnDocx: document.getElementById('btn-docx'),
+  mobileFieldsToggle: document.getElementById('mobile-fields-toggle'),
+  mobileFieldsBackdrop: document.getElementById('mobile-fields-backdrop'),
+  mobileFieldsSheet: document.getElementById('mobile-fields-sheet'),
+  mobileFieldsClose: document.getElementById('mobile-fields-close'),
+  mobileSheetTitle: document.getElementById('mobile-sheet-title'),
+  mobileSheetContent: document.getElementById('mobile-sheet-content')
 };
 
 function normalizeTemplateShape(template) {
@@ -441,6 +449,38 @@ function currentLines(view = state.currentView) {
 
 function currentViewSections() {
   return isMainDocumentView() ? [] : new Set(currentPart()?.sections ?? []);
+}
+
+function isMobileLayout() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
+function syncMobilePanelPlacement(mobileMode) {
+  const target = mobileMode ? refs.mobileSheetContent : document.querySelector('.form-panel');
+  if (refs.panelBody.parentElement !== target) {
+    target.appendChild(refs.panelBody);
+  }
+}
+
+function closeMobileFieldsSheet() {
+  document.body.classList.remove('mobile-sheet-open');
+}
+
+function openMobileFieldsSheet() {
+  if (!isMobileLayout()) return;
+  document.body.classList.add('mobile-sheet-open');
+}
+
+function updateMobileTemplateUI() {
+  const mobilePanelMode = isMobileLayout();
+  document.body.classList.toggle('mobile-panel-mode', mobilePanelMode);
+  refs.mobileFieldsToggle.hidden = !mobilePanelMode;
+  refs.mobileFieldsBackdrop.hidden = !mobilePanelMode;
+  refs.mobileFieldsSheet.hidden = !mobilePanelMode;
+  refs.mobileFieldsToggle.textContent = state.liveMode ? 'Laukai' : 'Duomenys';
+  refs.mobileSheetTitle.textContent = state.liveMode ? 'Laukai' : 'Duomenys';
+  syncMobilePanelPlacement(mobilePanelMode);
+  if (!mobilePanelMode) closeMobileFieldsSheet();
 }
 
 function partDisplayLabel(part) {
@@ -596,44 +636,64 @@ function resolveToken(token) {
   const fieldId = match ? match[2] : token;
   const color = sectionColor(fieldId);
   const value = state.data[fieldId];
+  const label = fieldById.get(fieldId)?.label ?? token;
 
   if (!match) {
     if (value === null || value === undefined || String(value).trim() === '') {
-      return { text: fieldPlaceholder(fieldId), isValue: false, color };
+      return { text: fieldPlaceholder(fieldId), isValue: false, color, label };
     }
-    return { text: String(value), isValue: true, color };
+    return { text: String(value), isValue: true, color, label };
   }
 
   if (!value) {
     return {
       text: match[1] === 'year' ? '______' : fieldPlaceholder(fieldId),
       isValue: false,
-      color
+      color,
+      label
     };
   }
 
   const date = parseDateValue(value);
   if (!date) {
-    return { text: String(value), isValue: true, color };
+    return { text: String(value), isValue: true, color, label };
   }
 
   if (match[1] === 'date') {
     return {
       text: date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' }),
       isValue: true,
-      color
+      color,
+      label
     };
   }
 
   if (match[1] === 'year') {
-    return { text: String(date.getFullYear()), isValue: true, color };
+    return { text: String(date.getFullYear()), isValue: true, color, label };
   }
 
   return {
     text: date.toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' }),
     isValue: true,
-    color
+    color,
+    label
   };
+}
+
+function buildPlaceholderNode(resolved) {
+  const placeholder = document.createElement('span');
+  placeholder.className = 'doc-placeholder';
+  placeholder.style.setProperty('--placeholder-width', `${Math.min(Math.max((resolved.text?.length ?? 12) * 0.34, 4.5), 16)}em`);
+
+  const line = document.createElement('span');
+  line.className = 'doc-placeholder-line';
+
+  const label = document.createElement('span');
+  label.className = 'doc-placeholder-label';
+  label.textContent = resolved.label;
+
+  placeholder.append(line, label);
+  return placeholder;
 }
 
 function buildLineNodes(rawLine) {
@@ -652,7 +712,7 @@ function buildLineNodes(rawLine) {
       mark.style.background = resolved.color;
       fragment.appendChild(mark);
     } else {
-      fragment.appendChild(document.createTextNode(resolved.text));
+      fragment.appendChild(buildPlaceholderNode(resolved));
     }
 
     lastIndex = match.index + match[0].length;
@@ -1062,6 +1122,7 @@ function setView(view) {
     buildLiveEditor();
   }
 
+  updateMobileTemplateUI();
   render();
 }
 
@@ -1078,12 +1139,15 @@ function setLeftTab(tab) {
   refs.paper.style.display = state.liveMode ? 'none' : '';
   refs.liveEditor.style.display = state.liveMode ? 'block' : 'none';
   updateTabActions();
+  updateMobileTemplateUI();
   refs.btnLoad.onclick = state.liveMode ? () => refs.loadTemplateInput.click() : () => refs.loadInput.click();
   refs.btnSave.onclick = state.liveMode ? saveTemplate : saveJson;
 
   if (state.liveMode) {
     buildLiveFields();
     buildLiveEditor();
+  } else {
+    closeMobileFieldsSheet();
   }
 }
 
@@ -1268,6 +1332,36 @@ function getFieldVariants(field) {
   ];
 }
 
+function insertTokenIntoEditor(token) {
+  const chip = makeLiveChip(token);
+  const selection = window.getSelection();
+  const savedRange = state.lastLiveRange;
+
+  if (savedRange && refs.liveEditor.contains(savedRange.startContainer)) {
+    const range = savedRange.cloneRange();
+    range.deleteContents();
+    range.insertNode(chip);
+    const cursor = document.createRange();
+    cursor.setStartAfter(chip);
+    cursor.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(cursor);
+    state.lastLiveRange = cursor.cloneRange();
+    syncFromEditor();
+    return;
+  }
+
+  refs.liveEditor.focus();
+  refs.liveEditor.appendChild(chip);
+  const cursor = document.createRange();
+  cursor.setStartAfter(chip);
+  cursor.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(cursor);
+  state.lastLiveRange = cursor.cloneRange();
+  syncFromEditor();
+}
+
 function buildLiveFields() {
   refs.liveFields.innerHTML = '';
 
@@ -1301,6 +1395,11 @@ function buildLiveFields() {
         chip.addEventListener('dragend', () => {
           state.dragPayload = null;
         });
+        chip.addEventListener('click', () => {
+          if (!isMobileLayout() || !state.liveMode) return;
+          insertTokenIntoEditor(variant.token);
+          closeMobileFieldsSheet();
+        });
         group.appendChild(chip);
       }
     }
@@ -1325,6 +1424,14 @@ function createDropRange(event) {
 }
 
 function initLiveDragDrop() {
+  const saveLiveSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!refs.liveEditor.contains(range.startContainer)) return;
+    state.lastLiveRange = range.cloneRange();
+  };
+
   refs.liveEditor.addEventListener('dragover', event => {
     if (!state.dragPayload) return;
     event.preventDefault();
@@ -1349,6 +1456,7 @@ function initLiveDragDrop() {
     cursor.collapse(true);
     selection.removeAllRanges();
     selection.addRange(cursor);
+    state.lastLiveRange = cursor.cloneRange();
 
     if (payload.type === 'editor' && payload.chip && payload.chip !== chip) {
       payload.chip.remove();
@@ -1358,6 +1466,10 @@ function initLiveDragDrop() {
   });
 
   refs.liveEditor.addEventListener('input', syncFromEditor);
+  refs.liveEditor.addEventListener('focus', saveLiveSelection);
+  refs.liveEditor.addEventListener('mouseup', saveLiveSelection);
+  refs.liveEditor.addEventListener('keyup', saveLiveSelection);
+  refs.liveEditor.addEventListener('touchend', saveLiveSelection);
 }
 
 function saveDocx() {
@@ -1498,6 +1610,7 @@ function init() {
   buildForm();
   populateForm();
   updateTabActions();
+  updateMobileTemplateUI();
 
   refs.btnLoad.onclick = () => refs.loadInput.click();
   refs.btnSave.onclick = saveJson;
@@ -1508,6 +1621,10 @@ function init() {
     window.print();
   });
   refs.btnDocx.addEventListener('click', saveDocx);
+  refs.mobileFieldsToggle.addEventListener('click', openMobileFieldsSheet);
+  refs.mobileFieldsBackdrop.addEventListener('click', closeMobileFieldsSheet);
+  refs.mobileFieldsClose.addEventListener('click', closeMobileFieldsSheet);
+  window.addEventListener('resize', updateMobileTemplateUI);
 
   document.querySelectorAll('.left-tab').forEach(button => {
     button.addEventListener('click', () => setLeftTab(button.dataset.tab));

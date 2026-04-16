@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="lt">
 <head>
   <meta charset="UTF-8">
@@ -55,9 +55,11 @@
           </button>
         </div>
       </div>
-      <div class="panel-note" id="panel-note">Užpildykite privalomus laukus, pažymėtus <span class="req">*</span>. Peržiūra atsinaujina automatiškai.</div>
-      <form id="lease-form" autocomplete="off"></form>
-      <div id="live-fields"></div>
+      <div id="panel-body">
+        <div class="panel-note" id="panel-note">Užpildykite privalomus laukus, pažymėtus <span class="req">*</span>. Peržiūra atsinaujina automatiškai.</div>
+        <form id="lease-form" autocomplete="off"></form>
+        <div id="live-fields"></div>
+      </div>
     </div>
 
     <div class="preview-panel">
@@ -69,6 +71,24 @@
       </div>
       <div id="live-editor" contenteditable="true" spellcheck="false"></div>
     </div>
+  </div>
+
+  <button id="mobile-fields-toggle" class="mobile-fields-toggle" type="button" hidden>
+    Laukai
+  </button>
+  <div id="mobile-fields-backdrop" class="mobile-fields-backdrop" hidden></div>
+  <div id="mobile-fields-sheet" class="mobile-fields-sheet" hidden>
+    <div class="mobile-fields-sheet-header">
+      <strong id="mobile-sheet-title">Laukai</strong>
+      <button id="mobile-fields-close" type="button" aria-label="Uždaryti laukus" title="Uždaryti laukus">
+        <span class="btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" focusable="false">
+            <path d="M4 4l8 8M12 4 4 12" />
+          </svg>
+        </span>
+      </button>
+    </div>
+    <div id="mobile-sheet-content" class="mobile-sheet-content"></div>
   </div>
 
   <script src="scripts/docx.min.js"></script>
