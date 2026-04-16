@@ -329,7 +329,7 @@ const TEMPLATE = {
   }]
 };
 
-const DEFAULT_DATA = {"contractDate":"2026-05-01","contractCity":"Erebonas","landlordName":"Cepelimantas Kalėdauskas","landlordAddress":"Pramanų g. 12-3, Erebonas","landlordIdCard":"ZZ000001","landlordPhone":"+37069900001","landlordEmail":"lordas.landlordas@example.com","landlordIban":"LT00 0000 0000 0000 0000","tenantName":"Kruopa Nuomininkaitė","tenantId":"39901010000","tenantAddress":"Svajonių al. 7-4, Erebonas","tenantPhone":"+37069900002","tenantEmail":"nuominas.nuominaitis@example.com","propertyRooms":"Pi kambarių","propertyArea":52,"propertyAddress":"Debesų g. 14-5, Erebonas","rentAmount":700,"rentPaymentDay":10,"depositAmount":700,"transferDate":"2026-05-15","leaseEndDate":"2027-05-14","actDate":"2026-05-15","meterElectricity":"","meterColdWater":"","meterHotWater":"","meterGas":""};
+const DEFAULT_DATA = {"contractDate":"","contractCity":"","landlordName":"","landlordAddress":"","landlordIdCard":"","landlordPhone":"","landlordEmail":"","landlordIban":"","tenantName":"","tenantId":"","tenantAddress":"","tenantPhone":"","tenantEmail":"","propertyRooms":"","propertyArea":null,"propertyAddress":"","rentAmount":null,"rentPaymentDay":null,"depositAmount":null,"transferDate":"","leaseEndDate":"","actDate":"","meterElectricity":"","meterColdWater":"","meterHotWater":"","meterGas":""};
 
 const SECTION_COLORS = {
   header: '#dbeafe',
@@ -354,7 +354,7 @@ const LINE_TYPE = {
 const MAX_PARTS = 4;
 
 const state = {
-  data: { ...DEFAULT_DATA },
+  data: {},
   currentView: 'document',
   liveMode: false,
   liveKey: 'document',
@@ -604,11 +604,15 @@ function getLineMeta(line) {
     return { type: LINE_TYPE.EMPTY };
   }
   if (line.includes(' | ')) {
-    const [left, right] = line.split(' | ');
+    const idx = line.indexOf(' | ');
+    const left = line.slice(0, idx);
+    const right = line.slice(idx + 3);
     return { type: LINE_TYPE.COLUMNS, left, right };
   }
   if (line.includes(' :: ')) {
-    const [label, value] = line.split(' :: ');
+    const idx = line.indexOf(' :: ');
+    const label = line.slice(0, idx);
+    const value = line.slice(idx + 4);
     return { type: LINE_TYPE.LABELED, label, value };
   }
 
@@ -749,7 +753,13 @@ function buildForm() {
 
       const fieldLabel = document.createElement('label');
       fieldLabel.setAttribute('for', field.id);
-      fieldLabel.innerHTML = field.label + (field.required ? ' <span class="req">*</span>' : '');
+      fieldLabel.textContent = field.label;
+      if (field.required) {
+        const req = document.createElement('span');
+        req.className = 'req';
+        req.textContent = '*';
+        fieldLabel.append(' ', req);
+      }
       wrapper.appendChild(fieldLabel);
 
       const input = field.type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
@@ -770,7 +780,7 @@ function buildForm() {
       input.addEventListener('input', () => {
         state.data[field.id] = input.value;
         if (String(input.value).trim()) wrapper.classList.remove('field-invalid');
-        render();
+        scheduleRender();
       });
 
       wrapper.appendChild(input);
@@ -857,13 +867,21 @@ function render() {
   renderDocument();
 }
 
+let renderTimer = null;
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, 80);
+}
+
 function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 function getValidationMessage(invalidFields) {
@@ -1034,6 +1052,10 @@ function readJsonFile(input, config) {
     } finally {
       input.value = '';
     }
+  };
+  reader.onerror = () => {
+    showToast(config.parseMessage);
+    input.value = '';
   };
   reader.readAsText(file);
 }
@@ -1306,6 +1328,7 @@ function serializeEditorLine(element) {
   }
   if (element.dataset?.lineType === 'labeled') {
     const [label, value] = element.children;
+    if (!label || !value) return '';
     return `${serializeContent(label)} :: ${serializeContent(value)}`;
   }
   return serializeContent(element);
@@ -1576,6 +1599,7 @@ function saveDocx() {
 
     if (meta.type === LINE_TYPE.EMPTY) {
       children.push(new Paragraph({ spacing: { before: 0, after: 80, line: 240 } }));
+      keepTogether = false;
       continue;
     }
 
