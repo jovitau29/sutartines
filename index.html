@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nuomos sutartis</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>Nuomos sutartis</h1>
+    </div>
+    <div class="header-right">
+      <button id="btn-docx">
+        <span class="btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" focusable="false">
+            <path d="M8 2v7.2m0 0 2.6-2.6M8 9.2 5.4 6.6M3 11.5v1.5h10v-1.5" />
+          </svg>
+        </span>
+        <span>Išsaugoti DOCX</span>
+      </button>
+      <button id="btn-print" class="primary">
+        <span class="btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" focusable="false">
+            <path d="M4.5 6V2.5h7V6M4 11.5h8v2H4zm-1.5-5h11A1.5 1.5 0 0 1 15 8v2H1V8A1.5 1.5 0 0 1 2.5 6.5Z" />
+          </svg>
+        </span>
+        <span>Generuoti PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="form-panel">
+      <div class="left-tabs">
+        <button class="left-tab active" data-tab="data">Duomenys</button>
+        <button class="left-tab" data-tab="live">Šablonas</button>
+        <div class="left-tabs-actions">
+          <button id="btn-load" aria-label="Įkelti duomenis" title="Įkelti duomenis">
+            <span class="btn-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" focusable="false">
+                <path d="M8 14V6.8m0 0 2.6 2.6M8 6.8 5.4 9.4M3 3v1.5h10V3" />
+              </svg>
+            </span>
+          </button>
+          <input type="file" id="load-input" accept=".json" hidden>
+          <input type="file" id="load-template-input" accept=".json" hidden>
+          <button id="btn-save" aria-label="Išsaugoti duomenis" title="Išsaugoti duomenis">
+            <span class="btn-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" focusable="false">
+                <path d="M8 2v7.2m0 0 2.6-2.6M8 9.2 5.4 6.6M3 11.5v1.5h10v-1.5" />
+              </svg>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="panel-note" id="panel-note">Užpildykite privalomus laukus, pažymėtus <span class="req">*</span>. Peržiūra atsinaujina automatiškai.</div>
+      <form id="lease-form" autocomplete="off"></form>
+      <div id="live-fields"></div>
+    </div>
+
+    <div class="preview-panel">
+      <div class="preview-tabs">
+        <div class="seg-group" id="preview-tab-group"></div>
+      </div>
+      <div class="paper">
+        <div id="document-text"></div>
+      </div>
+      <div id="live-editor" contenteditable="true" spellcheck="false"></div>
+    </div>
+  </div>
+
+  <script src="scripts/docx.min.js"></script>
+  <script src="scripts/app.js"></script>
+</body>
+</html>
